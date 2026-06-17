@@ -10,13 +10,16 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # CI runs against the ephemeral postgres service below, so connection
+    # strings and secret keys use deterministic throwaway test values rather
+    # than repo secrets. This keeps CI self-contained (works on any fork).
     env:
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
-      ACCESS_SECRET_KEY: ${{ secrets.ACCESS_SECRET_KEY }}
-      RESET_PASSWORD_SECRET_KEY: ${{ secrets.RESET_PASSWORD_SECRET_KEY }}
-      VERIFICATION_SECRET_KEY: ${{ secrets.VERIFICATION_SECRET_KEY }}
-      CORS_ORIGINS: ${{ secrets.CORS_ORIGINS }}
+      DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5433/testdatabase
+      TEST_DATABASE_URL: postgresql+asyncpg://postgres:password@localhost:5433/testdatabase
+      ACCESS_SECRET_KEY: ci-access-secret-key
+      RESET_PASSWORD_SECRET_KEY: ci-reset-password-secret-key
+      VERIFICATION_SECRET_KEY: ci-verification-secret-key
+      CORS_ORIGINS: '["*"]'
 
     services:
       postgres:
@@ -27,6 +30,11 @@ jobs:
           POSTGRES_DB: testdatabase
         ports:
           - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
