@@ -1,6 +1,8 @@
-from typing import Set
+import json
+from typing import Annotated, List
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -36,7 +38,23 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
 
     # CORS
-    CORS_ORIGINS: Set[str]
+    # Accepts a JSON list (e.g. '["http://localhost:3000"]'), a comma-separated
+    # string (e.g. "http://localhost:3000,https://app.example.com"), or empty
+    # (falls back to "*"). NoDecode disables pydantic-settings' eager JSON
+    # decoding so the validator below can handle all of these gracefully.
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = ["*"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _assemble_cors_origins(cls, v):
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return ["*"]
+        if isinstance(v, str):
+            s = v.strip()
+            if s.startswith("[") or s.startswith("{"):
+                return json.loads(s)
+            return [origin.strip() for origin in s.split(",") if origin.strip()]
+        return v
 
     # Auth / security tunables
     PREAUTH_SECRET_KEY: str = "change-me-preauth-secret"
